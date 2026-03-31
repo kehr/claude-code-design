@@ -1,0 +1,123 @@
+@startuml tool-permission-flow
+!theme plain
+title Claude Code - Tool Permission Check Flow
+
+start
+
+:Tool call requested\n(toolName, input, context);
+
+:Determine PermissionMode;
+note right
+  Modes:
+  - default (prompt user)
+  - acceptEdits (auto-accept safe ops)
+  - bypassPermissions (skip all)
+  - plan (show plan first)
+  - auto (classifier decides)
+  - bubble (delegate to parent)
+  - dontAsk (silent deny)
+end note
+
+if (mode == bypassPermissions?) then (yes)
+  #palegreen:ALLOW;
+  stop
+endif
+
+:Check deny rules\n(policy > project > user);
+
+if (Matches deny rule?) then (yes)
+  #salmon:DENY\nwith reason;
+  stop
+endif
+
+:Check allow rules\n(user > project > policy);
+
+if (Matches allow rule?) then (yes)
+  #palegreen:ALLOW;
+  stop
+endif
+
+:Check filesystem permissions;
+note right
+  - Path safety check
+  - Working directory boundaries
+  - Sensitive path detection
+    (.env, credentials, .git/)
+  - Read vs write distinction
+end note
+
+if (Path safety fails?) then (yes)
+  #salmon:DENY\n"unsafe path";
+  stop
+endif
+
+if (mode == auto?) then (yes)
+  :Run yoloClassifier;
+  note right
+    LLM-based classifier:
+    - 2-stage evaluation
+      (fast + thinking)
+    - Reads CLAUDE.md rules
+    - Builds allow/soft_deny lists
+    - Returns shouldBlock + reason
+  end note
+
+  if (Classifier: shouldBlock?) then (yes)
+    :Fall through to\ninteractive prompt;
+  else (no)
+    #palegreen:ALLOW\n(classifier approved);
+    stop
+  endif
+endif
+
+if (mode == acceptEdits?) then (yes)
+  if (Tool is read-only\nor non-destructive?) then (yes)
+    #palegreen:ALLOW;
+    stop
+  else (no)
+    :Fall through to prompt;
+  endif
+endif
+
+if (mode == dontAsk?) then (yes)
+  #salmon:DENY\n(silent);
+  stop
+endif
+
+if (mode == bubble?) then (yes)
+  #lightyellow:BUBBLE\nto parent agent;
+  stop
+endif
+
+:Run pre-permission hooks\n(settings.hooks);
+
+if (Hook decides?) then (yes)
+  if (Hook allows?) then (yes)
+    #palegreen:ALLOW\n(hook);
+    stop
+  else (no)
+    #salmon:DENY\n(hook);
+    stop
+  endif
+else (no)
+endif
+
+#lightyellow:ASK user\nInteractive prompt;
+note right
+  Show:
+  - Tool name & input
+  - Suggested permission updates
+  - Allow once / Always allow / Deny
+end note
+
+if (User response?) then (allow)
+  :Persist permission update\n(if "always allow");
+  #palegreen:ALLOW;
+  stop
+else (deny)
+  :Track denial in\nDenialTrackingState;
+  #salmon:DENY;
+  stop
+endif
+
+@enduml

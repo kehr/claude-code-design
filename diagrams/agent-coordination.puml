@@ -1,0 +1,89 @@
+@startuml agent-coordination
+!theme plain
+title Claude Code - Agent Coordination & Multi-Agent System
+
+participant "User" as user
+participant "Coordinator\n(Main Thread)" as coord
+participant "AgentTool" as agenttool
+participant "Worker Agent A\n(Sub-process)" as workerA
+participant "Worker Agent B\n(Sub-process)" as workerB
+participant "SendMessage\nTool" as sendmsg
+
+== Coordinator Mode Activation ==
+
+user -> coord : User prompt
+coord -> coord : isCoordinatorMode() = true
+coord -> coord : getCoordinatorSystemPrompt()\n(orchestration instructions)
+
+== Task Decomposition ==
+
+coord -> coord : Analyze task\nDecompose into sub-tasks
+
+== Parallel Agent Spawning ==
+
+coord -> agenttool : Spawn Worker A\n{prompt, tools, model}
+activate workerA
+agenttool -> workerA : Create LocalAgentTask\nwith QueryEngine instance
+note right of workerA
+  Each worker gets:
+  - Own QueryEngine
+  - Filtered tool set
+  - Permission mode: 'bubble'
+  - Isolated context
+end note
+
+coord -> agenttool : Spawn Worker B\n{prompt, tools, model}
+activate workerB
+agenttool -> workerB : Create LocalAgentTask\nwith QueryEngine instance
+
+== Worker Execution ==
+
+workerA -> workerA : Execute query loop\n(read files, run tools)
+workerB -> workerB : Execute query loop\n(read files, run tools)
+
+== Permission Bubbling ==
+
+workerA -> coord : Permission request\n(bubble mode)
+coord -> user : Forward permission prompt
+user -> coord : Allow/Deny
+coord -> workerA : Permission response
+
+== Cross-Agent Communication ==
+
+workerA -> sendmsg : SendMessage\n{to: "Worker B", message: "..."}
+sendmsg -> sendmsg : Write to mailbox\n.claude/team/{team}/{name}/inbox
+workerB -> sendmsg : Read inbox\n(polling)
+
+== Results Collection ==
+
+workerA --> coord : <task-notification>\nWorker A results
+deactivate workerA
+
+workerB --> coord : <task-notification>\nWorker B results
+deactivate workerB
+
+== Synthesis ==
+
+coord -> coord : Read all worker results\n(never delegate synthesis)
+coord -> coord : Synthesize final response
+coord -> user : Combined result
+
+== Agent Types ==
+
+note over agenttool
+  **Agent Types:**
+  - local_bash: Shell command runner
+  - local_agent: In-process sub-agent
+  - remote_agent: Background remote agent
+  - in_process_teammate: Team member
+  - local_workflow: Workflow script
+  - monitor_mcp: MCP monitor
+  - dream: Proactive background task
+
+  **Fork Optimization:**
+  - Cache-identical prefix for all children
+  - Only final directive differs
+  - Maximizes prompt cache reuse
+end note
+
+@enduml

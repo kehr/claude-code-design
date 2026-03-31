@@ -1,0 +1,60 @@
+@startuml bridge-states
+!theme plain
+title Claude Code - Bridge System State Machine
+
+state "Idle" as idle : No bridge configured
+state "Ready" as ready : Bridge initialized\nWaiting for first connection
+state "Connected" as connected : Active bidirectional\nmessage flow
+state "Reconnecting" as reconnecting : Lost connection\nExponential backoff
+state "Failed" as failed : Max retries exhausted\nTerminal state
+
+[*] --> idle
+
+idle --> ready : Bridge enabled\n(replBridgeEnabled = true)
+
+ready --> connected : First connection\nestablished
+
+connected --> connected : Message flow\n(write/read)
+connected --> reconnecting : Connection lost\n(WebSocket close / SSE timeout)
+
+reconnecting --> connected : Reconnection\nsucceeded
+reconnecting --> reconnecting : Retry with\nexponential backoff
+reconnecting --> failed : Max retries\nexhausted
+
+failed --> ready : Manual restart\n(user action)
+
+ready --> idle : Bridge disabled
+
+note right of connected
+  **Transport Abstraction:**
+  v1: HybridTransport
+    (WS reads + POST writes)
+  v2: SSETransport reads +
+    CCRClient writes
+
+  **Deduplication:**
+  - BoundedUUIDSet for echo dedup
+  - Inbound UUID tracking
+  - Session-title dedup
+end note
+
+note right of reconnecting
+  **Backoff Strategy:**
+  - Exponential delay
+  - Configurable via
+    getPollIntervalConfig()
+  - onAuth401 callback for
+    token refresh
+end note
+
+state connected {
+  state "Inbound" as inbound : Messages from claude.ai/IDE
+  state "Outbound" as outbound : Messages to claude.ai/IDE
+  state "Control" as control : Permission requests\nModel changes\nInitialization
+
+  inbound --> control : control_request\n(initialize/set_model/can_use_tool)
+  control --> outbound : control_response
+  inbound --> outbound : Message forwarding
+}
+
+@enduml
