@@ -2,9 +2,77 @@
 
 ## 架构图
 
-> 完整 PlantUML 源文件:
-> - [diagrams/config-hierarchy.puml](diagrams/config-hierarchy.puml) (配置层级)
-> - [diagrams/tool-permission-flow.puml](diagrams/tool-permission-flow.puml) (权限流程)
+```plantuml
+@startuml config-hierarchy
+!theme plain
+title Claude Code - Configuration Hierarchy & Merging
+
+left to right direction
+
+package "Configuration Sources\n(Priority: low -> high)" as sources {
+
+  rectangle "1. User Settings\n~/.claude/settings.json\n(global, user-editable)" as user #LightBlue
+  rectangle "2. Project Settings\n.claude/settings.json\n(shared, committed)" as project #LightGreen
+  rectangle "3. Local Settings\n.claude/settings.local.json\n(gitignored, personal)" as local #LightYellow
+  rectangle "4. Flag Settings\n--settings CLI arg\n(read-only)" as flag #LightCoral
+  rectangle "5. Policy Settings\nmanaged-settings.json\n(read-only, enterprise)" as policy #Plum
+
+}
+
+package "MDM Sources\n(Enterprise Management)" as mdm {
+  rectangle "Remote API Settings\n/v1/settings" as remote #Pink
+  rectangle "macOS Managed Prefs\ncom.anthropic.claudecode" as macos #LightGray
+  rectangle "Windows Registry\nHKLM\\SOFTWARE\\Policies" as win_hklm #LightGray
+  rectangle "Drop-in Directory\nmanaged-settings.d/*.json" as dropin #LightGray
+  rectangle "Windows User Registry\nHKCU\\SOFTWARE\\Policies" as win_hkcu #LightGray
+}
+
+package "Settings Merge Engine" as merge {
+  rectangle "mergeWith()\n+ settingsMergeCustomizer" as merger #White
+  note bottom of merger
+    **Merge Rules:**
+    - Objects: deep merge
+    - Arrays: concatenate (unique)
+    - Scalars: later source wins
+    - Policy settings: always included
+    - Clone before return (prevent mutation)
+  end note
+}
+
+package "Validation" as validation {
+  rectangle "Zod Schema\nSettingsSchema" as zod #White
+  note bottom of zod
+    **50+ fields validated:**
+    - apiKeyHelper: string
+    - permissions: { allow, deny, ask, defaultMode }
+    - model: string
+    - env: Record<string, string>
+    - hooks: { preToolUse, postToolUse, ... }
+    - attribution: { commit, pr }
+    - autoCompactEnabled: boolean
+    - contextWindowOverride: number
+    - ...
+  end note
+}
+
+rectangle "Final Merged Settings\ngetSettingsWithSources()" as final #Gold
+
+user --> merger
+project --> merger
+local --> merger
+flag --> merger
+policy --> merger
+
+remote --> policy : highest MDM priority
+macos --> policy
+win_hklm --> policy
+dropin --> policy
+win_hkcu --> policy : lowest MDM priority
+
+merger --> zod
+zod --> final
+@enduml
+```
 
 ## 一、配置系统
 
@@ -227,7 +295,7 @@ export type PermissionRuleSource =
 
 ### 权限检查流程
 
-详细流程见 [diagrams/tool-permission-flow.puml](diagrams/tool-permission-flow.puml)。简要概述：
+详细流程见 [04-core-tool-system](04-core-tool-system.md) 中的权限检查 PlantUML 图。简要概述：
 
 1. **检查权限模式**: `bypassPermissions` 直接放行
 2. **检查 deny 规则**: policy > project > user 优先级

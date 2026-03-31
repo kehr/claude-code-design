@@ -2,48 +2,110 @@
 
 ## 架构图
 
-> 完整 PlantUML 源文件: [diagrams/system-architecture.puml](diagrams/system-architecture.puml)
+```plantuml
+@startuml system-architecture
+!theme plain
+skinparam componentStyle rectangle
+skinparam defaultTextAlignment center
+skinparam packageStyle frame
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Entry Layer                               │
-│  main.tsx -> cli.tsx (Commander.js) -> init.ts                   │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────────────┐
-│                       Command Layer                              │
-│  commands.ts (Registry) -> 50+ Slash Commands                    │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────────────┐
-│                    Query Engine Layer                             │
-│  QueryEngine.ts (LLM Loop) + query.ts + cost-tracker.ts         │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────────────┐
-│                        Tool Layer                                │
-│  tools.ts (Registry) -> 40+ Tools (Bash/FileRead/Grep/Agent...) │
-│  ┌─────────────┐ ┌──────────────┐ ┌────────────────┐           │
-│  │  AgentTool   │ │   MCPTool    │ │   SkillTool    │           │
-│  │ (Sub-agents) │ │ (MCP Proto)  │ │ (Skill Exec)   │           │
-│  └──────┬──────┘ └──────┬───────┘ └───────┬────────┘           │
-└─────────┼───────────────┼─────────────────┼─────────────────────┘
-          │               │                 │
-┌─────────▼───────────────▼─────────────────▼─────────────────────┐
-│                       Service Layer                              │
-│  api/claude.ts  services/mcp/  services/oauth/  analytics/       │
-│  compact/       lsp/           plugins/         policyLimits/    │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────────────┐
-│                     State & UI Layer                             │
-│  AppState (Store) -> React + Ink -> 389 Components + 104 Hooks  │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────────────┐
-│                    Bridge & Remote Layer                         │
-│  bridge/ (IDE Bridge)  coordinator/ (Multi-Agent)  remote/       │
-└─────────────────────────────────────────────────────────────────┘
+title Claude Code - System Architecture Overview
+
+package "Entry Layer" as entry {
+  [main.tsx\nCLI Entrypoint] as main
+  [cli.tsx\nCommander.js Parser] as cli
+  [init.ts\nInitialization] as init
+}
+
+package "Command Layer" as cmdlayer {
+  [commands.ts\nCommand Registry] as cmdreg
+  [50+ Slash Commands\n/commit /review /compact ...] as cmds
+}
+
+package "Query Engine Layer" as querylayer {
+  [QueryEngine.ts\nLLM Query Loop] as qe
+  [query.ts\nMessage Processing] as query
+  [cost-tracker.ts\nToken Cost Tracking] as cost
+}
+
+package "Tool Layer" as toollayer {
+  [tools.ts\nTool Registry] as toolreg
+  [40+ Built-in Tools\nBash/FileRead/FileEdit/Grep...] as tools
+
+  package "Tool Subsystems" as toolsub {
+    [AgentTool\nSub-agent Spawning] as agent
+    [MCPTool\nMCP Protocol] as mcptool
+    [SkillTool\nSkill Execution] as skill
+  }
+}
+
+package "Service Layer" as servicelayer {
+  [api/claude.ts\nAnthropic API Client] as api
+  [services/mcp/\nMCP Server Manager] as mcp
+  [services/oauth/\nOAuth 2.0] as oauth
+  [services/analytics/\nGrowthBook + OTel] as analytics
+  [services/compact/\nContext Compaction] as compact
+  [services/lsp/\nLanguage Server] as lsp
+  [services/plugins/\nPlugin Loader] as plugins
+}
+
+package "State & UI Layer" as uilayer {
+  [AppState\nGlobal State Store] as state
+  [React + Ink\nTerminal Renderer] as ink
+  [389 Components\nREPL/Messages/Footer...] as components
+  [104 Hooks\nPermission/Config/UI...] as hooks
+}
+
+package "Bridge & Remote" as bridgelayer {
+  [bridge/\nIDE Bridge] as bridge
+  [coordinator/\nMulti-Agent] as coord
+  [remote/\nRemote Sessions] as remote
+}
+
+package "Infrastructure" as infra {
+  [utils/permissions/\nPermission System] as perms
+  [utils/settings/\nConfig System] as settings
+  [utils/claudemd.ts\nContext Discovery] as claudemd
+  [bootstrap/state.ts\nBootstrap State] as bootstrap
+}
+
+main --> cli
+cli --> init
+init --> cmdreg
+cmdreg --> cmds
+
+cmds --> qe
+qe --> query
+qe --> cost
+qe --> toolreg
+toolreg --> tools
+toolreg --> agent
+toolreg --> mcptool
+toolreg --> skill
+
+tools --> api
+mcptool --> mcp
+skill --> plugins
+agent --> qe : "recursive\nquery loop"
+
+qe --> state
+state --> ink
+ink --> components
+components --> hooks
+
+bridge --> qe
+coord --> agent
+remote --> bridge
+
+perms --> tools
+settings --> qe
+claudemd --> qe
+bootstrap --> init
+
+api --> oauth
+api --> analytics
+qe --> compact
+@enduml
 ```
 
 ## 分层设计原则

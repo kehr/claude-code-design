@@ -68,18 +68,18 @@ Claude Code 是 Anthropic 开发的终端 AI 编程助手 CLI 工具。用户通
 
 ### PlantUML 架构图
 
-所有架构图的 PlantUML 源文件位于 [diagrams/](diagrams/) 目录。可使用 PlantUML 工具或在线渲染器生成图片。
+所有架构图以 `plantuml` 代码块形式内嵌在对应文档中，GitBook PlantUML 插件可直接渲染。源文件同时保留在 [diagrams/](diagrams/) 目录。
 
-| 图表 | 类型 | 对应文档 |
+| 图表 | 类型 | 内嵌位置 |
 |------|------|---------|
-| [system-architecture.puml](diagrams/system-architecture.puml) | 组件图 | 01-架构全景 |
-| [startup-sequence.puml](diagrams/startup-sequence.puml) | 时序图 | 02-启动流程 |
-| [query-loop.puml](diagrams/query-loop.puml) | 活动图 | 03-查询引擎 |
-| [tool-permission-flow.puml](diagrams/tool-permission-flow.puml) | 活动图 | 04-工具系统 |
-| [bridge-states.puml](diagrams/bridge-states.puml) | 状态图 | 07-Bridge |
-| [agent-coordination.puml](diagrams/agent-coordination.puml) | 时序图 | 09-Agent 协调 |
-| [config-hierarchy.puml](diagrams/config-hierarchy.puml) | 组件图 | 10-配置与权限 |
-| [compaction-strategy.puml](diagrams/compaction-strategy.puml) | 活动图 | 11-上下文与压缩 |
+| system-architecture | 组件图 | [01-架构全景](01-core-architecture-overview.md) |
+| startup-sequence | 时序图 | [02-启动流程](02-core-startup-and-initialization.md) |
+| query-loop | 活动图 | [03-查询引擎](03-core-query-engine.md) |
+| tool-permission-flow | 活动图 | [04-工具系统](04-core-tool-system.md) |
+| bridge-states | 状态图 | [07-Bridge](07-subsystem-bridge.md) |
+| agent-coordination | 时序图 | [09-Agent 协调](09-subsystem-agent-and-coordinator.md) |
+| config-hierarchy | 组件图 | [10-配置与权限](10-subsystem-config-and-permissions.md) |
+| compaction-strategy | 活动图 | [11-上下文与压缩](11-subsystem-context-and-compaction.md) |
 
 ## 源码目录结构速览
 
